@@ -20,10 +20,10 @@ from dipy.tracking.streamline import set_number_of_points, select_random_set_of_
 from nibabel import trackvis
 from dipy.tracking import utils
 
+from models.augment import *
+
 num_points = 10
 num_streamlines = 128
-w_coords = 1 # weight for the coords loss
-w_seeds =  1 # weight for the seeds loss
 
 # Model adapted from https://towardsdatascience.com/deep-learning-on-point-clouds-implementing-pointnet-in-google-colab-1fd65cd3a263
 class CustomModel(nn.Module):
@@ -85,7 +85,7 @@ class CustomModel(nn.Module):
         #print(x.size())
 
         #result = x.view(-1, 3, num_streamlines*num_points)
-        result = x.view(-1, 3*num_points, num_streamlines)
+        result = x.view(-1, 3, num_streamlines*num_points)
 
         #x = x.view(-1, 512)     # Output: (2048)
         #x = fixed_encoding
@@ -110,36 +110,51 @@ def CustomLoss(output, target):
 
 def get_data(tom_fn, tractogram_fn):
     # Load data
-    tom = np.load(tom_fn)
-    tractogram = np.float32(np.load(tractogram_fn))
+    tom_cloud = np.load(tom_fn)
+    trk_cloud = np.float32(np.load(tractogram_fn))
 
     #####################
     # Data augmentation #
     #####################
-    # 1. Add noise to TOM orientations
-    noise_stdev = np.random.rand(1) * 0.05
-    #noise = np.random.normal()
-    #noise_stdev = torch.rand(1) * 0.05
-    #noise = torch.normal(mean=torch.zeros(tom.size()), std=torch.ones(tom.size())*noise_stdev)
-    #noise[] # we want the first 3 dimensions to be 1
-    #tom += noise
+    # Rotation factors
+    x_angle = np.random.uniform(-np.pi/4, np.pi/4)
+    y_angle = np.random.uniform(-np.pi/4, np.pi/4)
+    z_angle = np.random.uniform(-np.pi/4, np.pi/4)
 
-    # 2. ROTATION
+    # Scale factors
+    x_factor = np.random.uniform(0.9, 1.5)
+    y_factor = np.random.uniform(0.9, 1.5)
+    z_factor = np.random.uniform(0.9, 1.5)
 
-    # 3. DISPLACEMENT
+    # Displacement factors
+    x_disp = np.random.uniform(0,0.1)
+    y_disp = np.random.uniform(0,0.1)
+    z_disp = np.random.uniform(0,0.1)
 
-    # 4. ELASTIC DEFORMATION
+    # Noise stdev factor
+    noise_stdev = np.random.uniform(0,0.05)
 
-    # 5. Zooming
+    # Get the matrices
+    rot_matrix = get_rot_matrix(x_angle, y_angle, z_angle)
+    scale_matrix = get_scale_matrix(x_factor, y_factor, z_factor)
 
-    # 6. Resampling input pointcloud
+    # Augment the TOM cloud
+    tom_cloud = rotate_tom_cloud(tom_cloud, rot_matrix)
+    tom_cloud = displace_tom_cloud(tom_cloud, x_disp, y_disp, z_disp)
+    tom_cloud = scale_tom_cloud(tom_cloud, scale_matrix)
+    tom_cloud = tom_add_noise(tom_cloud, 0, noise_stdev)
+
+    # Augment the TRK cloud
+    trk_cloud = rotate_trk_cloud(trk_cloud, rot_matrix)
+    trk_cloud = displace_trk_cloud(trk_cloud, x_disp, y_disp, z_disp)
+    trk_cloud = scale_trk_cloud(trk_cloud, scale_matrix)
 
     # Convert to torch tensors
-    tom = torch.from_numpy(np.float32(tom))
+    tom = torch.from_numpy(np.float32(tom_cloud))
     tom = tom.permute(1,0) # channels first for pytorch
 
-    tractogram = np.reshape(tractogram, (-1,num_points*3))
-    tractogram = torch.from_numpy(tractogram)
+    #tractogram = np.reshape(tractogram, (-1,num_points*3))
+    tractogram = torch.from_numpy(np.float32(trk_cloud))
     tractogram = tractogram.permute(1, 0) # channels first for pytorch
 
     return [tom, tractogram]
