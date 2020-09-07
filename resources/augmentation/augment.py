@@ -11,10 +11,10 @@ from mpl_toolkits import mplot3d
 num_points = 10
 num_sl = 128
 
-def fast_vis(streamlines, vectors):
-    """
+def fast_vis(trk_cloud, vector_cloud):
     # Get streamlines and seeds from tensors
-    streamlines = np.reshape(streamlines, (-1,3))
+    #streamlines = np.reshape(streamlines, (-1,3))
+    streamlines = trk_cloud 
 
     # Plot the result
     fig = plt.figure()
@@ -28,15 +28,18 @@ def fast_vis(streamlines, vectors):
     # Render the result
     fig.tight_layout()
     plt.show()
-    """
 
     fig = plt.figure()
     ax = fig.gca(projection='3d')
     ax.set_xlim([0, 1])
     ax.set_ylim([0, 1])
     ax.set_zlim([0, 1])
-    positions = vectors[:,:3]
-    ax.scatter(positions[:,0], positions[:,1], positions[:,2])
+    positions, angles = vector_cloud[:,:3], vector_cloud[:,3:]
+    vis_angles = angles.copy()
+    vis_angles[:,0] /= 145
+    vis_angles[:,1] /= 174
+    vis_angles[:,2] /= 145
+    ax.quiver(positions[:,0], positions[:,1], positions[:,2], vis_angles[:,0], vis_angles[:,1], vis_angles[:,2])
     plt.show()
 
 def get_rot_matrix(x_angle, y_angle, z_angle):
@@ -78,8 +81,17 @@ def rotate_trk_cloud(trk_cloud, rot_matrix):
     trk_cloud = trk_cloud - np.array([0.5,0.5,0.5])
 
     result = np.dot(trk_cloud, rot_matrix.T)
-    #result = np.dot(trk_cloud, rot_matrix)
-    #print(np.sum(result - resultB))
+
+    # Move data back to the old origin [0.5, 0.5, 0.5]
+    result = result + np.array([0.5, 0.5, 0.5])
+    
+    return result
+
+def scale_trk_cloud(trk_cloud, scale_matrix):
+    # Move data to the origin [0,0,0]
+    trk_cloud = trk_cloud - np.array([0.5,0.5,0.5])
+
+    result = np.dot(trk_cloud, scale_matrix.T)
 
     # Move data back to the old origin [0.5, 0.5, 0.5]
     result = result + np.array([0.5, 0.5, 0.5])
@@ -97,25 +109,85 @@ def rotate_tom_cloud(tom_cloud, rot_matrix):
     result = np.concatenate((positions,angles), axis=-1)
     return result
 
-def add_noise(tom_cloud, mean, stdev):
+def scale_tom_cloud(tom_cloud, scale_matrix):
     positions, angles = tom_cloud[:,:3], tom_cloud[:,3:]
-    noise = np.random.normal(loc=0, scale=stdev, size=tom_cloud.shape)
-    tom_cloud += noise
-    
+
+    positions = positions - np.array([0.5,0.5,0.5])
+    positions = np.dot(positions, scale_matrix.T)
+    positions = positions + np.array([0.5, 0.5, 0.5])
+
+    result = np.concatenate((positions,angles), axis=-1)
+    return result
+
+def tom_add_noise(tom_cloud, mean, stdev):
+    positions, angles = tom_cloud[:,:3], tom_cloud[:,3:]
+    noise = np.random.normal(loc=0, scale=stdev, size=angles.shape)
+    angles += noise
+
+    tom_cloud = np.concatenate((positions,angles), axis=-1)
+    return tom_cloud
+
+def displace_tom_cloud(tom_cloud, x, y, z):
+    positions, angles = tom_cloud[:,:3], tom_cloud[:,3:]
+
+    positions += np.array([x,y,z])
+
+    tom_cloud = np.concatenate((positions,angles), axis=-1)
+
+    return tom_cloud
+
+def displace_trk_cloud(trk_cloud, x, y, z):
+    return trk_cloud + np.array([x,y,z])
 
 
-x_angle, y_angle, z_angle = 0,0,np.pi
+# Rotation factors
+x_angle = np.random.uniform(-np.pi/4, np.pi/4)
+y_angle = np.random.uniform(-np.pi/4, np.pi/4)
+z_angle = np.random.uniform(-np.pi/4, np.pi/4)
+
+# Scale factors
+x_factor = np.random.uniform(0.9, 1.5)
+y_factor = np.random.uniform(0.9, 1.5)
+z_factor = np.random.uniform(0.9, 1.5)
+
+# Displacement factors
+x_disp = np.random.uniform(0,0.1)
+y_disp = np.random.uniform(0,0.1)
+z_disp = np.random.uniform(0,0.1)
+
+# Noise stdev factor
+noise_stdev = np.random.uniform(0,0.05)
+
+print('ROTATION:')
+print(x_angle, y_angle, z_angle)
+
+print('SCALE:')
+print(x_factor, y_factor, z_factor)
+
+print('DISPLACEMENT:')
+print(x_disp, y_disp, z_disp)
+
+print('NOISE:')
+print(noise_stdev)
+
 rot_matrix = get_rot_matrix(x_angle, y_angle, z_angle)
-
-fn = '../../data/CST_left_128_10_partial/not_preprocessed/tractogram_clouds/599469_0_CST_left.npy'
-data = np.load(fn)
-result_trk = rotate_trk_cloud(data, rot_matrix)
-
-fn = '../../data/CST_left_128_10_partial/not_preprocessed/vector_clouds/599469_0_CST_left_DIRECTIONS.npy'
-tom = np.load(fn)
-
-x_factor, y_factor, z_factor = 0.5, 0.5, 0.5
 scale_matrix = get_scale_matrix(x_factor, y_factor, z_factor)
-result_tom = rotate_tom_cloud(tom, scale_matrix)
 
-fast_vis(result_tom, result_tom)
+# Open files
+trk_fn = '../../data/CST_left_128_10_partial/not_preprocessed/tractogram_clouds/599469_0_CST_left.npy'
+tom_fn = '../../data/CST_left_128_10_partial/not_preprocessed/vector_clouds/599469_0_CST_left_DIRECTIONS.npy'
+trk_cloud = np.load(trk_fn)
+tom_cloud = np.load(tom_fn)
+
+# Augment the TOM cloud
+fast_vis(trk_cloud, tom_cloud)
+tom_cloud = rotate_tom_cloud(tom_cloud, rot_matrix)
+tom_cloud = displace_tom_cloud(tom_cloud, x_disp, y_disp, z_disp)
+tom_cloud = scale_tom_cloud(tom_cloud, scale_matrix)
+tom_cloud = tom_add_noise(tom_cloud, 0, noise_stdev)
+
+# Augment the TRK cloud
+trk_cloud = rotate_trk_cloud(trk_cloud, rot_matrix)
+trk_cloud = displace_trk_cloud(trk_cloud, x_disp, y_disp, z_disp)
+trk_cloud = scale_trk_cloud(trk_cloud, scale_matrix)
+fast_vis(trk_cloud, tom_cloud)
