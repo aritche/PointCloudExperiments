@@ -13,7 +13,7 @@ from glob import glob
 import torch
 import torch.nn as nn
 
-from chamferdist import ChamferDistance
+from chamfer_python import distChamfer as chamferDistance
 
 from dipy.io.streamline import load_trk
 from dipy.tracking.streamline import set_number_of_points, select_random_set_of_streamlines
@@ -34,22 +34,23 @@ class CustomModel(nn.Module):
         self.tanh = nn.Tanh()
         self.sigmoid = nn.Sigmoid()
         self.relu = nn.ReLU()
-        self.dropout = torch.nn.Dropout(p=0.25)
+        self.dropout = torch.nn.Dropout(p=0.5)
                                                                                                                  # VOLUME SIZE                      # PARAMETERS
         # Encoding (input -> 512 vector)                                                                         # 3 x 144 x 144 x 144 -> 8.9M      (IN * F^3 + 1)*OUT
-        self.mlp_1 = nn.Conv1d(in_channels=6,  out_channels=64, kernel_size=1)
-        self.batchnorm_1 = nn.BatchNorm1d(64)
-        self.mlp_2 = nn.Conv1d(in_channels=64, out_channels=128, kernel_size=1)
-        self.batchnorm_2 = nn.BatchNorm1d(128)
-        self.mlp_3 = nn.Conv1d(in_channels=128, out_channels=1024, kernel_size=1)
-        self.batchnorm_3 = nn.BatchNorm1d(1024)
+        self.mlp_1 = nn.Conv1d(in_channels=6,  out_channels=32, kernel_size=1)
+        self.mlp_2 = nn.Conv1d(in_channels=32, out_channels=64, kernel_size=1)
+        self.mlp_3 = nn.Conv1d(in_channels=64, out_channels=128, kernel_size=1)
+        #self.mlp_4 = nn.Conv1d(in_channels=128, out_channels=256, kernel_size=1)
+        #self.mlp_5 = nn.Conv1d(in_channels=256, out_channels=512, kernel_size=1)
+        #self.mlp_6 = nn.Conv1d(in_channels=512, out_channels=1024, kernel_size=1)
+        #self.mlp_7 = nn.Conv1d(in_channels=1024, out_channels=2048, kernel_size=1)
 
-        #self.maxpool = nn.MaxPool1d(1024)
-
-        # 128 x 10 x 3
-        self.linear_1 = nn.Linear(in_features=1024, out_features=1280)
-        self.batchnorm_4 = nn.BatchNorm1d(1280)
-        self.linear_2 = nn.Linear(in_features=1280, out_features=3840)
+        self.linear_1 = nn.Linear(in_features=128, out_features=256)
+        self.linear_2 = nn.Linear(in_features=256, out_features=512)
+        self.linear_3 = nn.Linear(in_features=512, out_features=1024)
+        self.linear_4 = nn.Linear(in_features=1024, out_features=3840)
+        #self.batchnorm_4 = nn.BatchNorm1d(1280)
+        #self.linear_2 = nn.Linear(in_features=1280, out_features=3840)
         #self.batchnorm_5 = nn.BatchNorm1d(3840)
 
     #def forward(self, x, seeds, fixed_encoding):
@@ -59,14 +60,18 @@ class CustomModel(nn.Module):
         #x = self.dropout(self.relu(self.batchnorm_2(self.mlp_2(local_features))))
         #x = self.dropout(self.relu(self.batchnorm_3(self.mlp_3(x))))
 
-        local_features = self.dropout(self.relu(self.mlp_1(x)))
-        x = self.dropout(self.relu(self.mlp_2(local_features)))
+        x = self.dropout(self.relu(self.mlp_1(x)))
+        x = self.dropout(self.relu(self.mlp_2(x)))
         x = self.dropout(self.relu(self.mlp_3(x)))
+        #x = self.dropout(self.relu(self.mlp_4(x)))
+        #x = self.dropout(self.relu(self.mlp_5(x)))
+        #x = self.dropout(self.relu(self.mlp_6(x)))
+        #x = self.dropout(self.relu(self.mlp_7(x)))
 
         # Max pooling
         #x = self.maxpool(x)
         x = nn.MaxPool1d(x.size(-1))(x)
-        global_features = x.view(-1, 1024)
+        x = x.view(-1, 128)
 
         # Concat global and local features
         # 64x1000 vs. 1024
@@ -78,10 +83,13 @@ class CustomModel(nn.Module):
         #print(x.size())
         # 2x1088x1000
         #x = self.dropout(self.relu(self.batchnorm_4(self.linear_1(global_features))))
-        x = self.dropout(self.relu(self.linear_1(global_features)))
+        x = self.dropout(self.relu(self.linear_1(x)))
+        x = self.dropout(self.relu(self.linear_2(x)))
+        x = self.dropout(self.tanh(self.linear_3(x)))
+        x = self.linear_4(x)
         #print(x.size())
         #x = self.sigmoid(self.linear_2(x))
-        x = self.linear_2(x)
+        #x = self.linear_2(x)
         #print(x.size())
 
         #result = x.view(-1, 3, num_streamlines*num_points)
@@ -98,15 +106,10 @@ class CustomModel(nn.Module):
 def CustomLoss(output, target):
     output = output.permute(0,2,1)
     target = target.permute(0,2,1)
-    #output = output.view(-1,num_streamlines, 3)
-    #target = target.view(-1,num_streamlines, 3)
 
-    # Re-implemented MSE loss for efficiency reasons
-    chamferDist = ChamferDistance()
-    dist, _, _, _ = chamferDist(output, target)
+    distA, distB, _, _ = chamferDistance(output, target)
 
-    return dist.mean()
-    #return ((output - target)**2).mean()
+    return (distA + distB).mean()
 
 def get_data(tom_fn, tractogram_fn):
     # Load data
@@ -132,7 +135,7 @@ def get_data(tom_fn, tractogram_fn):
     z_disp = np.random.uniform(0,0.1)
 
     # Noise stdev factor
-    noise_stdev = np.random.uniform(0,0.05)
+    noise_stdev = np.random.uniform(0,0.02)
 
     # Get the matrices
     rot_matrix = get_rot_matrix(x_angle, y_angle, z_angle)
@@ -182,6 +185,12 @@ class CustomDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.toms_fn)
+
+def OutputToPoints(output):
+    points = output.permute(1,0)
+    points = points.cpu().detach().numpy()
+
+    return points
 
 def OutputToStreamlines(output):
     streamlines = output
