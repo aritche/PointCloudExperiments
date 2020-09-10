@@ -34,21 +34,22 @@ class CustomModel(nn.Module):
         self.tanh = nn.Tanh()
         self.sigmoid = nn.Sigmoid()
         self.relu = nn.ReLU()
-        self.dropout = torch.nn.Dropout(p=0.5)
+        self.dropout = torch.nn.Dropout(p=0)
                                                                                                                  # VOLUME SIZE                      # PARAMETERS
         # Encoding (input -> 512 vector)                                                                         # 3 x 144 x 144 x 144 -> 8.9M      (IN * F^3 + 1)*OUT
         self.mlp_1 = nn.Conv1d(in_channels=6,  out_channels=32, kernel_size=1)
         self.mlp_2 = nn.Conv1d(in_channels=32, out_channels=64, kernel_size=1)
         self.mlp_3 = nn.Conv1d(in_channels=64, out_channels=128, kernel_size=1)
         #self.mlp_4 = nn.Conv1d(in_channels=128, out_channels=256, kernel_size=1)
+        #self.mlp_4 = nn.Conv1d(in_channels=128, out_channels=256, kernel_size=1)
         #self.mlp_5 = nn.Conv1d(in_channels=256, out_channels=512, kernel_size=1)
         #self.mlp_6 = nn.Conv1d(in_channels=512, out_channels=1024, kernel_size=1)
         #self.mlp_7 = nn.Conv1d(in_channels=1024, out_channels=2048, kernel_size=1)
 
-        self.linear_1 = nn.Linear(in_features=128, out_features=256)
-        self.linear_2 = nn.Linear(in_features=256, out_features=512)
-        self.linear_3 = nn.Linear(in_features=512, out_features=1024)
-        self.linear_4 = nn.Linear(in_features=1024, out_features=3840)
+        #self.linear_1 = nn.Linear(in_features=256, out_features=256)
+        self.linear_1 = nn.Linear(in_features=128, out_features=512)
+        self.linear_2 = nn.Linear(in_features=512, out_features=1024)
+        self.linear_3 = nn.Linear(in_features=1024, out_features=3840)
         #self.batchnorm_4 = nn.BatchNorm1d(1280)
         #self.linear_2 = nn.Linear(in_features=1280, out_features=3840)
         #self.batchnorm_5 = nn.BatchNorm1d(3840)
@@ -63,6 +64,7 @@ class CustomModel(nn.Module):
         x = self.dropout(self.relu(self.mlp_1(x)))
         x = self.dropout(self.relu(self.mlp_2(x)))
         x = self.dropout(self.relu(self.mlp_3(x)))
+        #x = self.dropout(self.tanh(self.mlp_4(x)))
         #x = self.dropout(self.relu(self.mlp_4(x)))
         #x = self.dropout(self.relu(self.mlp_5(x)))
         #x = self.dropout(self.relu(self.mlp_6(x)))
@@ -72,6 +74,13 @@ class CustomModel(nn.Module):
         #x = self.maxpool(x)
         x = nn.MaxPool1d(x.size(-1))(x)
         x = x.view(-1, 128)
+
+        cv2.namedWindow('encoding', cv2.WINDOW_NORMAL)
+        cv2.namedWindow('linear1', cv2.WINDOW_NORMAL)
+        cv2.namedWindow('linear2', cv2.WINDOW_NORMAL)
+        cv2.namedWindow('linear3', cv2.WINDOW_NORMAL)
+
+        encoding = np.reshape(x.cpu().detach().numpy()[0], (16,8))
 
         # Concat global and local features
         # 64x1000 vs. 1024
@@ -84,9 +93,29 @@ class CustomModel(nn.Module):
         # 2x1088x1000
         #x = self.dropout(self.relu(self.batchnorm_4(self.linear_1(global_features))))
         x = self.dropout(self.relu(self.linear_1(x)))
+        linear1 = np.reshape(x.cpu().detach().numpy()[0], (32,16))
         x = self.dropout(self.relu(self.linear_2(x)))
-        x = self.dropout(self.tanh(self.linear_3(x)))
-        x = self.linear_4(x)
+        linear2 = np.reshape(x.cpu().detach().numpy()[0], (32,32))
+        #x = self.dropout(self.tanh(self.linear_3(x)))
+        #linear3 = np.reshape(x.cpu().detach().numpy()[0], (32,32))
+
+
+        #encoding = (encoding - np.min(encoding))/(np.max(encoding) - np.min(encoding))
+        encoding = (encoding - -1)/(1 - -1)
+        cv2.imshow('encoding', np.uint8(encoding*255))
+        #linear1 = (linear1 - np.min(linear1))/(np.max(linear1) - np.min(linear1))
+        linear1 = (linear1 - -1)/(1 - -1)
+        cv2.imshow('linear1', np.uint8(linear1*255))
+        #linear2 = (linear2 - np.min(linear2))/(np.max(linear2) - np.min(linear2))
+        linear2 = (linear2 - -1)/(1 - -1)
+        cv2.imshow('linear2', np.uint8(linear2*255))
+        #linear3 = (linear3 - np.min(linear3))/(np.max(linear3) - np.min(linear3))
+        #linear3 = (linear3 - -1)/(1 - -1)
+        #cv2.imshow('linear3', np.uint8(linear3*255))
+        cv2.waitKey(1)
+
+
+        x = self.linear_3(x)
         #print(x.size())
         #x = self.sigmoid(self.linear_2(x))
         #x = self.linear_2(x)
@@ -106,6 +135,9 @@ class CustomModel(nn.Module):
 def CustomLoss(output, target):
     output = output.permute(0,2,1)
     target = target.permute(0,2,1)
+
+    output = output.reshape(-1, num_streamlines, num_points*3)
+    target = target.reshape(-1, num_streamlines, num_points*3)
 
     distA, distB, _, _ = chamferDistance(output, target)
 
