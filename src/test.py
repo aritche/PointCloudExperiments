@@ -74,13 +74,16 @@ with torch.no_grad():
 
         label, output = labels[0], outputs[0]
 
-        if subject_count == 0 or subject_count == 144:
-            print(outputs.size())
-            #plotly_cloud(output, OutputToPoints)
-            #plotly_cloud(label, OutputToPoints)
-            plot_output_maps(output, OutputToPoints, num_sl, points_per_sl)
-            plot_output_maps(label, OutputToPoints, num_sl, points_per_sl)
-        else:
-            print(subject_count)
+        #plotly_cloud(output, OutputToPoints)
+        #plotly_cloud(label, OutputToPoints)
+        #plotly_lines(label, OutputToStreamlines)
+        #plotly_lines(output, OutputToStreamlines)
+        #plotly_tom_and_trk(inputs[0], output, OutputToPoints)
+        plotly_everything(inputs[0], output, OutputToPoints, num_sl, points_per_sl)
+        #plot_output_maps(output, 'output', OutputToPoints, num_sl, points_per_sl)
+        #plot_output_maps(label, 'label', OutputToPoints, num_sl, points_per_sl)
+        #matplotlib_lines(output, OutputToStreamlines)
+        #matplotlib_combined_lines(output, label, OutputToStreamlines)
+        input('continue')
 
         subject_count += 1
