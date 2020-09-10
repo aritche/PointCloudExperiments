@@ -164,7 +164,7 @@ def get_data(tom_fn, tractogram_fn, is_test):
     return [tom, tractogram]
 
 class CustomDataset(torch.utils.data.Dataset):
-    def __init__(self, toms_dir, tractograms_dir, is_test):
+    def __init__(self, toms_dir, tractograms_dir, is_test=False):
         # Get lists of files
         self.toms_fn = glob(toms_dir + '/*.npy')
         self.tractograms_fn = glob(tractograms_dir + '/*.npy')
