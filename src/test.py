@@ -42,7 +42,7 @@ epoch_number = args[2]
 num_sl = 128
 points_per_sl = 10
 
-test_dir = '../data/CST_left_128_10_partial/not_preprocessed'
+test_dir = '../data/CST_left_128_10_partial/not_preprocessed/test'
 
 # Load model
 print("Loading model...")
