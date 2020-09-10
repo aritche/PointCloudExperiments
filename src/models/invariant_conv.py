@@ -111,7 +111,7 @@ def CustomLoss(output, target):
 
     return (distA + distB).mean()
 
-def get_data(tom_fn, tractogram_fn):
+def get_data(tom_fn, tractogram_fn, is_test):
     # Load data
     tom_cloud = np.load(tom_fn)
     trk_cloud = np.float32(np.load(tractogram_fn))
@@ -119,38 +119,39 @@ def get_data(tom_fn, tractogram_fn):
     #####################
     # Data augmentation #
     #####################
-    # Rotation factors
-    x_angle = np.random.uniform(-np.pi/4, np.pi/4)
-    y_angle = np.random.uniform(-np.pi/4, np.pi/4)
-    z_angle = np.random.uniform(-np.pi/4, np.pi/4)
+    if is_test == False:
+        # Rotation factors
+        x_angle = np.random.uniform(-np.pi/4, np.pi/4)
+        y_angle = np.random.uniform(-np.pi/4, np.pi/4)
+        z_angle = np.random.uniform(-np.pi/4, np.pi/4)
 
-    # Scale factors
-    x_factor = np.random.uniform(0.9, 1.5)
-    y_factor = np.random.uniform(0.9, 1.5)
-    z_factor = np.random.uniform(0.9, 1.5)
+        # Scale factors
+        x_factor = np.random.uniform(0.9, 1.5)
+        y_factor = np.random.uniform(0.9, 1.5)
+        z_factor = np.random.uniform(0.9, 1.5)
 
-    # Displacement factors
-    x_disp = np.random.uniform(0,0.1)
-    y_disp = np.random.uniform(0,0.1)
-    z_disp = np.random.uniform(0,0.1)
+        # Displacement factors
+        x_disp = np.random.uniform(0,0.1)
+        y_disp = np.random.uniform(0,0.1)
+        z_disp = np.random.uniform(0,0.1)
 
-    # Noise stdev factor
-    noise_stdev = np.random.uniform(0,0.02)
+        # Noise stdev factor
+        noise_stdev = np.random.uniform(0,0.02)
 
-    # Get the matrices
-    rot_matrix = get_rot_matrix(x_angle, y_angle, z_angle)
-    scale_matrix = get_scale_matrix(x_factor, y_factor, z_factor)
+        # Get the matrices
+        rot_matrix = get_rot_matrix(x_angle, y_angle, z_angle)
+        scale_matrix = get_scale_matrix(x_factor, y_factor, z_factor)
 
-    # Augment the TOM cloud
-    tom_cloud = rotate_tom_cloud(tom_cloud, rot_matrix)
-    tom_cloud = displace_tom_cloud(tom_cloud, x_disp, y_disp, z_disp)
-    tom_cloud = scale_tom_cloud(tom_cloud, scale_matrix)
-    tom_cloud = tom_add_noise(tom_cloud, 0, noise_stdev)
+        # Augment the TOM cloud
+        tom_cloud = rotate_tom_cloud(tom_cloud, rot_matrix)
+        tom_cloud = displace_tom_cloud(tom_cloud, x_disp, y_disp, z_disp)
+        tom_cloud = scale_tom_cloud(tom_cloud, scale_matrix)
+        tom_cloud = tom_add_noise(tom_cloud, 0, noise_stdev)
 
-    # Augment the TRK cloud
-    trk_cloud = rotate_trk_cloud(trk_cloud, rot_matrix)
-    trk_cloud = displace_trk_cloud(trk_cloud, x_disp, y_disp, z_disp)
-    trk_cloud = scale_trk_cloud(trk_cloud, scale_matrix)
+        # Augment the TRK cloud
+        trk_cloud = rotate_trk_cloud(trk_cloud, rot_matrix)
+        trk_cloud = displace_trk_cloud(trk_cloud, x_disp, y_disp, z_disp)
+        trk_cloud = scale_trk_cloud(trk_cloud, scale_matrix)
 
     # Convert to torch tensors
     tom = torch.from_numpy(np.float32(tom_cloud))
@@ -163,7 +164,7 @@ def get_data(tom_fn, tractogram_fn):
     return [tom, tractogram]
 
 class CustomDataset(torch.utils.data.Dataset):
-    def __init__(self, toms_dir, tractograms_dir):
+    def __init__(self, toms_dir, tractograms_dir, is_test):
         # Get lists of files
         self.toms_fn = glob(toms_dir + '/*.npy')
         self.tractograms_fn = glob(tractograms_dir + '/*.npy')
@@ -171,6 +172,8 @@ class CustomDataset(torch.utils.data.Dataset):
         # Sort for correct matching between the sets of filenames
         self.toms_fn.sort()
         self.tractograms_fn.sort()
+
+        self.is_test = is_test
         
         # Load data into RAM
         #self.data = []
@@ -181,7 +184,7 @@ class CustomDataset(torch.utils.data.Dataset):
 
     # Given an index, return the loaded [data, label]
     def __getitem__(self, idx):
-        return get_data(self.toms_fn[idx], self.tractograms_fn[idx])
+        return get_data(self.toms_fn[idx], self.tractograms_fn[idx], self.is_test)
 
     def __len__(self):
         return len(self.toms_fn)

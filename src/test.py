@@ -35,7 +35,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 dump = input("Please make sure you are importing the correct model into the test file...")
 
 # Parameters
-from models.invariant import CustomDataset, OutputToStreamlines, OutputToPoints
+from models.invariant_conv import CustomDataset, OutputToStreamlines, OutputToPoints
 args = sys.argv
 model_name = args[1]
 epoch_number = args[2]
@@ -61,7 +61,7 @@ toms_dir = test_dir + '/vector_clouds'
 tractograms_dir = test_dir + '/tractogram_clouds'
 #_, affine = load_nifti(toms_dir + '/644044_0_CST_left.nii.gz')
 #inverse_affine = np.linalg.inv(affine)
-dataset = CustomDataset(toms_dir, tractograms_dir)
+dataset = CustomDataset(toms_dir, tractograms_dir, is_test=True)
 testloader = torch.utils.data.DataLoader(dataset, batch_size=1)
 
 torch.cuda.empty_cache()
