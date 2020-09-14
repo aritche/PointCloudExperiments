@@ -118,12 +118,14 @@ def get_data(tom_fn, tractogram_fn, is_test):
     trk_cloud = np.float32(np.load(tractogram_fn))
 
     # Sample streamlines from tractogram
+    trk_cloud = np.reshape(trk_cloud, (-1, num_points*3))
     np.random.shuffle(trk_cloud)
-    trk_cloud = trk_cloud[:num_streamlines*num_points,:]
+    trk_cloud = trk_cloud[:num_streamlines,:]
     if len(trk_cloud) < num_streamlines: # pad with zeros if not enough streamlines
-        padding_cloud = np.zeros((num_streamlines,3))
+        padding_cloud = np.zeros((num_streamlines,3*num_points))
         padding_cloud[:trk_cloud.shape[0],:trk_cloud.shape[1]] = trk_cloud
         trk_cloud = padding_cloud
+    trk_cloud = np.reshape(trk_cloud, (num_streamlines*num_points, 3))
 
     #####################
     # Data augmentation #
@@ -214,7 +216,7 @@ def OutputToStreamlines(output):
     streamlines = streamlines.permute(1, 0) # from (3,N) to (N,3)
     streamlines = streamlines.cpu().detach().numpy()
 
-    streamlines = np.reshape(streamlines, (num_streamlines,num_points,3))
+    streamlines = np.reshape(streamlines, (-1,num_points,3))
 
     return streamlines
     
