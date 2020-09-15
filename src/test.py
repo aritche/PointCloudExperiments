@@ -35,14 +35,18 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 dump = input("Please make sure you are importing the correct model into the test file...")
 
 # Parameters
-from models.invariant_conv import CustomDataset, OutputToStreamlines, OutputToPoints
+from models.sampling import CustomDataset, OutputToStreamlines, OutputToPoints
 args = sys.argv
 model_name = args[1]
 epoch_number = args[2]
 num_sl = 128
 points_per_sl = 10
 
-test_dir = '../data/CST_left_128_10_partial/not_preprocessed/test'
+#test_dir = '../data/CST_left_128_10_partial/not_preprocessed/test'
+#test_dir = '../data/CST_left_original_10_ppsl'
+#test_dir = '../data/multitract_10_ppsl'
+#test_dir = '../data/multitract_10_ppsl/test'
+test_dir = '../data/multitract_10_ppsl/unseen'
 
 # Load model
 print("Loading model...")
@@ -69,21 +73,49 @@ torch.cuda.empty_cache()
 subject_count = 0
 with torch.no_grad():
     for inputs, labels in testloader:
-        inputs, labels = inputs.to(device), labels.to(device)
-        outputs = model.forward(inputs)
+        if type(inputs) is list:
+            for i in range(len(inputs)):
+                inputs[i] = inputs[i].to(device)
+        else:
+            inputs = inputs.to(device)
 
-        label, output = labels[0], outputs[0]
+        if type(labels) is list:
+            for i in range(len(labels)):
+                labels[i] = labels[i].to(device)
+        else:
+            labels = labels.to(device)
 
+        for i in range(1):
+            #inputs[1] += ((torch.rand(1,3,128) - 0.5)*2*0.01).to(device)
+            if type(inputs) is list:
+                outputs = model.forward(*inputs)
+            else:
+                outputs = model.forward(inputs)
+
+
+            if i == 0:
+                label, output = labels[0], outputs[0]
+            else:
+                output = torch.cat((output, outputs[0]), dim=-1)
+                label = labels[0]
+
+        #output = torch.unique(output, dim=0)
+        #label = torch.unique(label, dim=0)
+        print(output.size(), label.size())
+        #matplotlib_tom_cloud(inputs[0][0])
+        plotly_tom(inputs[0][0])
         #plotly_cloud(output, OutputToPoints)
         #plotly_cloud(label, OutputToPoints)
-        #plotly_lines(label, OutputToStreamlines)
-        #plotly_lines(output, OutputToStreamlines)
+        plotly_lines(output, OutputToStreamlines)
+        plotly_lines(label, OutputToStreamlines)
         #plotly_tom_and_trk(inputs[0], output, OutputToPoints)
-        plotly_everything(inputs[0], output, OutputToPoints, num_sl, points_per_sl)
+        #plotly_everything(inputs[0][0], output, OutputToPoints, num_sl, points_per_sl)
+        #plotly_everything(inputs[0][0], label, OutputToPoints, num_sl, points_per_sl)
         #plot_output_maps(output, 'output', OutputToPoints, num_sl, points_per_sl)
         #plot_output_maps(label, 'label', OutputToPoints, num_sl, points_per_sl)
         #matplotlib_lines(output, OutputToStreamlines)
         #matplotlib_combined_lines(output, label, OutputToStreamlines)
+        #matplotlib_overlap_lines(output, label, OutputToStreamlines)
         input('continue')
 
         subject_count += 1
