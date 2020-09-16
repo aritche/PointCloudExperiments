@@ -54,6 +54,7 @@ class CustomModel(nn.Module):
         t = self.dropout(self.relu(self.mlp_3(t)))
         t = nn.MaxPool1d(t.size(-1))(t)
         t = t.view(-1, 128)
+        t_encoding = np.reshape(t.cpu().detach().numpy()[0], (1,128))
 
         # Encode seeds
         s = self.dropout(self.relu(self.seed_mlp_1(seeds_cloud)))
@@ -70,7 +71,8 @@ class CustomModel(nn.Module):
         #cv2.namedWindow('linear2', cv2.WINDOW_NORMAL)
         #cv2.namedWindow('linear3', cv2.WINDOW_NORMAL)
 
-        encoding = np.reshape(x.cpu().detach().numpy()[0], (16,12))
+        #encoding = np.reshape(x.cpu().detach().numpy()[0], (16,12))
+        encoding = np.reshape(x.cpu().detach().numpy()[0], (192))
 
         # Generate the final result
         x = self.dropout(self.relu(self.linear_1(x)))
@@ -81,7 +83,12 @@ class CustomModel(nn.Module):
 
         #encoding = (encoding - np.min(encoding))/(np.max(encoding) - np.min(encoding))
         #encoding = (encoding - -1)/(1 - -1)
+        #encoding = np.tanh(encoding)
         #cv2.imshow('encoding', np.uint8(encoding*255))
+
+        #t_encoding = np.tanh(t_encoding)
+        #t_encoding = (t_encoding - np.min(t_encoding))/(np.max(t_encoding) - np.min(t_encoding))
+        #cv2.imshow('encoding', np.uint8(t_encoding*255))
         #linear1 = (linear1 - np.min(linear1))/(np.max(linear1) - np.min(linear1))
         #linear1 = (linear1 - -1)/(1 - -1)
         #cv2.imshow('linear1', np.uint8(linear1*255))
@@ -147,7 +154,7 @@ def get_data(tom_fn, tractogram_fn, is_test):
         z_disp = np.random.uniform(0,0.1)
 
         # Noise stdev factor
-        noise_stdev = np.random.uniform(0,0.02)
+        noise_stdev = np.random.uniform(-0.02,0.02)
 
         # Get the matrices
         rot_matrix = get_rot_matrix(x_angle, y_angle, z_angle)
