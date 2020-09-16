@@ -149,12 +149,12 @@ def get_data(tom_fn, tractogram_fn, is_test):
         z_factor = np.random.uniform(0.9, 1.5)
 
         # Displacement factors
-        x_disp = np.random.uniform(0,0.1)
-        y_disp = np.random.uniform(0,0.1)
-        z_disp = np.random.uniform(0,0.1)
+        x_disp = np.random.uniform(-0.1,0.1)
+        y_disp = np.random.uniform(-0.1,0.1)
+        z_disp = np.random.uniform(-0.1,0.1)
 
         # Noise stdev factor
-        noise_stdev = np.random.uniform(-0.02,0.02)
+        noise_stdev = np.random.uniform(0,0.02)
 
         # Get the matrices
         rot_matrix = get_rot_matrix(x_angle, y_angle, z_angle)
