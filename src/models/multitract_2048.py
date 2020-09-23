@@ -78,7 +78,7 @@ class CustomModel(nn.Module):
         #encoding = np.reshape(x.cpu().detach().numpy()[0], (192))
 
         # Generate the final result
-        x = self.dropout(self.relu(self.linear_1(x)))
+        x = self.linear_1(x)
         #linear1 = np.reshape(x.cpu().detach().numpy()[0], (32,16))
 
         #x = self.dropout(self.relu(self.linear_2(x)))
