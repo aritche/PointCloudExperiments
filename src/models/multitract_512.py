@@ -48,7 +48,7 @@ class CustomModel(nn.Module):
 
     def forward(self, tom_cloud, seeds_cloud):
         # Encode TOM
-        t = self.mlp_1(tom_cloud)
+        t = self.relu(self.mlp_1(tom_cloud))
         t = self.relu(self.mlp_2(t))
         t = self.relu(self.mlp_3(t))
         t = nn.MaxPool1d(t.size(-1))(t)
