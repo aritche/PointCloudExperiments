@@ -87,7 +87,7 @@ def CustomLoss(output, target):
     target_seeds = target[:,:,:3]
     seedDistA, seedDistB, _, _ = chamferDistance(output_seeds, target_seeds)
 
-    return (distA + distB).mean() #+ 10*(seedDistA + seedDistB).mean()
+    return (distA + distB).mean() + 10*(seedDistA + seedDistB).mean()
 
 def get_data(tom_fn, tractogram_fn, is_test):
     # Load data
